@@ -17,54 +17,40 @@ function Register() {
 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [apiError, setApiError] = useState('');
 
   const handleChange = e => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-    // Clear error for this field
+    setFormData(prev => ({ ...prev, [name]: value }));
+    // Clear error when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: '',
-      }));
-    }
-    // Clear API error
-    if (apiError) {
-      setApiError('');
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    // Name validation
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
-    } else if (formData.name.trim().length < 2) {
+    } else if (formData.name.length < 2) {
       newErrors.name = 'Name must be at least 2 characters';
     }
 
-    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+    } else if (!emailRegex.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email';
     }
 
-    // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
     } else if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(formData.password)) {
-      newErrors.password = 'Password must contain at least one letter and one number';
+      newErrors.password = 'Password must contain both letters and numbers';
     }
 
-    // Confirm password validation
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password';
     } else if (formData.password !== formData.confirmPassword) {
@@ -77,15 +63,15 @@ function Register() {
 
   const handleSubmit = async e => {
     e.preventDefault();
-    setApiError('');
 
     if (!validateForm()) {
       return;
     }
 
-    setLoading(true);
-
     try {
+      setLoading(true);
+      setErrors({});
+
       const response = await apiClient.post('/auth/register', {
         name: formData.name,
         email: formData.email,
@@ -93,21 +79,18 @@ function Register() {
       });
 
       if (response.data.success) {
-        // Auto-login after registration
-        const loginResponse = await apiClient.post('/auth/login', {
-          email: formData.email,
-          password: formData.password,
-        });
-
-        if (loginResponse.data.success) {
-          login(loginResponse.data.user, loginResponse.data.token);
-          navigate('/');
-        }
+        const { user, token } = response.data.data;
+        login(user, token);
+        navigate('/dashboard');
       }
     } catch (error) {
+      console.error('Registration error:', error);
       const message =
-        error.response?.data?.message || 'Registration failed. Please try again.';
-      setApiError(message);
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        'Registration failed. Please try again.';
+      setErrors({ submit: message });
     } finally {
       setLoading(false);
     }
@@ -117,11 +100,7 @@ function Register() {
     <div className="auth-container">
       <div className="auth-card">
         <h2>Create Account</h2>
-        <p className="auth-subtitle">Join Sweet Shop Management System</p>
-
-        {apiError && <div className="error-message">{apiError}</div>}
-
-        <form onSubmit={handleSubmit} className="auth-form">
+        <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="name">Name</label>
             <input
@@ -133,7 +112,7 @@ function Register() {
               className={errors.name ? 'error' : ''}
               placeholder="Enter your name"
             />
-            {errors.name && <span className="field-error">{errors.name}</span>}
+            {errors.name && <span className="error-text">{errors.name}</span>}
           </div>
 
           <div className="form-group">
@@ -147,7 +126,7 @@ function Register() {
               className={errors.email ? 'error' : ''}
               placeholder="Enter your email"
             />
-            {errors.email && <span className="field-error">{errors.email}</span>}
+            {errors.email && <span className="error-text">{errors.email}</span>}
           </div>
 
           <div className="form-group">
@@ -159,10 +138,10 @@ function Register() {
               value={formData.password}
               onChange={handleChange}
               className={errors.password ? 'error' : ''}
-              placeholder="Enter your password"
+              placeholder="Enter password"
             />
             {errors.password && (
-              <span className="field-error">{errors.password}</span>
+              <span className="error-text">{errors.password}</span>
             )}
           </div>
 
@@ -175,18 +154,18 @@ function Register() {
               value={formData.confirmPassword}
               onChange={handleChange}
               className={errors.confirmPassword ? 'error' : ''}
-              placeholder="Confirm your password"
+              placeholder="Confirm password"
             />
             {errors.confirmPassword && (
-              <span className="field-error">{errors.confirmPassword}</span>
+              <span className="error-text">{errors.confirmPassword}</span>
             )}
           </div>
 
-          <button
-            type="submit"
-            className="auth-button"
-            disabled={loading}
-          >
+          {errors.submit && (
+            <div className="error-banner">{errors.submit}</div>
+          )}
+
+          <button type="submit" disabled={loading} className="submit-button">
             {loading ? 'Creating Account...' : 'Register'}
           </button>
         </form>

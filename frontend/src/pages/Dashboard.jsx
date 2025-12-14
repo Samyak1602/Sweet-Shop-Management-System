@@ -1,29 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/apiClient';
 import './Dashboard.css';
 
 function Dashboard() {
-  const { isAuthenticated, isAdmin } = useAuth();
-
+  const { isAuthenticated } = useAuth();
   const [sweets, setSweets] = useState([]);
-  const [filteredSweets, setFilteredSweets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  // Search and filter state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
-  const [showInStockOnly, setShowInStockOnly] = useState(false);
-
-  // Purchase state
-  const [purchaseQuantities, setPurchaseQuantities] = useState({});
-  const [purchaseLoading, setPurchaseLoading] = useState({});
-  const [purchaseErrors, setPurchaseErrors] = useState({});
-  const [successMessage, setSuccessMessage] = useState('');
+  const [purchasing, setPurchasing] = useState({});
 
   const categories = [
     'Traditional',
@@ -36,150 +25,88 @@ function Dashboard() {
   ];
 
   useEffect(() => {
-    fetchSweets();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [sweets, searchQuery, selectedCategory, minPrice, maxPrice, showInStockOnly]);
+    if (isAuthenticated()) {
+      fetchSweets();
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
 
   const fetchSweets = async () => {
     try {
       setLoading(true);
-      setError('');
-      const response = await apiClient.get('/sweets');
+      setError(null);
+
+      const params = {};
+      if (searchTerm) params.name = searchTerm;
+      if (categoryFilter) params.category = categoryFilter;
+      if (minPrice) params.minPrice = minPrice;
+      if (maxPrice) params.maxPrice = maxPrice;
+
+      const response = await apiClient.get('/sweets', { params });
       if (response.data.success) {
-        setSweets(response.data.data);
-        setFilteredSweets(response.data.data);
+        setSweets(response.data.data || []);
       }
     } catch (err) {
-      setError('Failed to fetch sweets. Please try again.');
+      setError(
+        err.response?.data?.message || 'Failed to fetch sweets. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const applyFilters = () => {
-    let filtered = [...sweets];
-
-    // Search by name
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(sweet =>
-        sweet.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    // Filter by category
-    if (selectedCategory) {
-      filtered = filtered.filter(sweet => sweet.category === selectedCategory);
-    }
-
-    // Filter by price range
-    if (minPrice) {
-      filtered = filtered.filter(sweet => sweet.price >= parseFloat(minPrice));
-    }
-    if (maxPrice) {
-      filtered = filtered.filter(sweet => sweet.price <= parseFloat(maxPrice));
-    }
-
-    // Filter by stock availability
-    if (showInStockOnly) {
-      filtered = filtered.filter(sweet => sweet.quantity > 0 && sweet.inStock);
-    }
-
-    setFilteredSweets(filtered);
-  };
-
-  const handleSearchChange = e => {
-    setSearchQuery(e.target.value);
-  };
-
-  const clearFilters = () => {
-    setSearchQuery('');
-    setSelectedCategory('');
-    setMinPrice('');
-    setMaxPrice('');
-    setShowInStockOnly(false);
-  };
-
-  const handleQuantityChange = (sweetId, value) => {
-    setPurchaseQuantities(prev => ({
-      ...prev,
-      [sweetId]: value,
-    }));
-    // Clear error for this sweet
-    if (purchaseErrors[sweetId]) {
-      setPurchaseErrors(prev => ({
-        ...prev,
-        [sweetId]: '',
-      }));
-    }
+  const handleSearch = e => {
+    e.preventDefault();
+    fetchSweets();
   };
 
   const handlePurchase = async sweetId => {
-    const quantity = parseInt(purchaseQuantities[sweetId] || 1);
-
-    if (!quantity || quantity <= 0) {
-      setPurchaseErrors(prev => ({
-        ...prev,
-        [sweetId]: 'Please enter a valid quantity',
-      }));
-      return;
-    }
-
     try {
-      setPurchaseLoading(prev => ({ ...prev, [sweetId]: true }));
-      setPurchaseErrors(prev => ({ ...prev, [sweetId]: '' }));
+      setPurchasing(prev => ({ ...prev, [sweetId]: true }));
 
       const response = await apiClient.post(`/sweets/${sweetId}/purchase`, {
-        quantity,
+        quantity: 1,
       });
 
       if (response.data.success) {
-        setSuccessMessage(`Successfully purchased ${quantity} item(s)!`);
-        setTimeout(() => setSuccessMessage(''), 3000);
-
-        // Update sweet in local state
-        setSweets(prev =>
-          prev.map(sweet =>
-            sweet._id === sweetId ? response.data.data : sweet
+        // Update the sweet in the list
+        setSweets(prevSweets =>
+          prevSweets.map(sweet =>
+            sweet._id === sweetId
+              ? { ...sweet, quantity: response.data.data.quantity }
+              : sweet
           )
         );
-
-        // Clear quantity input
-        setPurchaseQuantities(prev => ({
-          ...prev,
-          [sweetId]: '',
-        }));
       }
     } catch (err) {
-      const message =
-        err.response?.data?.message || 'Purchase failed. Please try again.';
-      setPurchaseErrors(prev => ({
-        ...prev,
-        [sweetId]: message,
-      }));
+      alert(
+        err.response?.data?.message || 'Purchase failed. Please try again.'
+      );
     } finally {
-      setPurchaseLoading(prev => ({ ...prev, [sweetId]: false }));
+      setPurchasing(prev => ({ ...prev, [sweetId]: false }));
     }
   };
 
-  if (loading) {
-    return (
-      <div className="dashboard-container">
-        <div className="loading">Loading sweets...</div>
-      </div>
-    );
-  }
+  const clearFilters = () => {
+    setSearchTerm('');
+    setCategoryFilter('');
+    setMinPrice('');
+    setMaxPrice('');
+  };
 
-  if (error) {
+  useEffect(() => {
+    if (isAuthenticated()) {
+      fetchSweets();
+    }
+  }, [categoryFilter, minPrice, maxPrice]);
+
+  if (!isAuthenticated()) {
     return (
       <div className="dashboard-container">
-        <div className="error-container">
-          <p>{error}</p>
-          <button onClick={fetchSweets} className="retry-button">
-            Retry
-          </button>
+        <div className="auth-required">
+          <h2>Authentication Required</h2>
+          <p>Please login or register to view sweets.</p>
         </div>
       </div>
     );
@@ -188,176 +115,132 @@ function Dashboard() {
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
-        <h2>Sweet Shop Inventory</h2>
-        <div className="header-actions">
-          {isAdmin() && (
-            <Link to="/admin" className="admin-link-button">
-              Admin Panel
-            </Link>
-          )}
-          <button onClick={fetchSweets} className="refresh-button">
-            🔄 Refresh
-          </button>
-        </div>
+        <h1>Sweet Shop Dashboard</h1>
+        <p>Browse and purchase your favorite sweets</p>
       </div>
 
-      {successMessage && (
-        <div className="success-banner">{successMessage}</div>
-      )}
+      <div className="search-filters">
+        <form onSubmit={handleSearch} className="search-form">
+          <div className="search-input-group">
+            <input
+              type="text"
+              placeholder="Search by name..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+            <button type="submit" className="search-button">
+              Search
+            </button>
+          </div>
 
-      {/* Filters Section */}
-      <div className="filters-section">
-        <div className="search-bar">
-          <input
-            type="text"
-            placeholder="Search sweets by name..."
-            value={searchQuery}
-            onChange={handleSearchChange}
-            className="search-input"
-          />
-        </div>
-
-        <div className="filters-grid">
           <div className="filter-group">
-            <label>Category</label>
             <select
-              value={selectedCategory}
-              onChange={e => setSelectedCategory(e.target.value)}
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
               className="filter-select"
             >
               <option value="">All Categories</option>
-              {categories.map(category => (
-                <option key={category} value={category}>
-                  {category}
+              {categories.map(cat => (
+                <option key={cat} value={cat}>
+                  {cat}
                 </option>
               ))}
             </select>
-          </div>
 
-          <div className="filter-group">
-            <label>Min Price</label>
             <input
               type="number"
-              placeholder="0"
+              placeholder="Min Price"
               value={minPrice}
               onChange={e => setMinPrice(e.target.value)}
-              className="filter-input"
+              className="price-input"
               min="0"
+              step="0.01"
             />
-          </div>
 
-          <div className="filter-group">
-            <label>Max Price</label>
             <input
               type="number"
-              placeholder="1000"
+              placeholder="Max Price"
               value={maxPrice}
               onChange={e => setMaxPrice(e.target.value)}
-              className="filter-input"
+              className="price-input"
               min="0"
+              step="0.01"
             />
-          </div>
 
-          <div className="filter-group checkbox-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={showInStockOnly}
-                onChange={e => setShowInStockOnly(e.target.checked)}
-              />
-              <span>In Stock Only</span>
-            </label>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="clear-button"
+            >
+              Clear Filters
+            </button>
           </div>
-        </div>
-
-        <button onClick={clearFilters} className="clear-filters">
-          Clear Filters
-        </button>
+        </form>
       </div>
 
-      {/* Results Count */}
-      <div className="results-info">
-        Showing {filteredSweets.length} of {sweets.length} sweets
-      </div>
+      {error && <div className="error-message">{error}</div>}
 
-      {/* Sweets Grid */}
-      {filteredSweets.length === 0 ? (
-        <div className="no-results">
-          <p>No sweets found matching your criteria.</p>
-        </div>
+      {loading ? (
+        <div className="loading">Loading sweets...</div>
       ) : (
-        <div className="sweets-grid">
-          {filteredSweets.map(sweet => (
-            <div key={sweet._id} className="sweet-card">
-              <div className="sweet-header">
-                <h3>{sweet.name}</h3>
-                <span className={`category-badge ${sweet.category.toLowerCase().replace(/[^a-z]/g, '')}`}>
-                  {sweet.category}
-                </span>
-              </div>
+        <>
+          <div className="sweets-count">
+            {sweets.length} {sweets.length === 1 ? 'sweet' : 'sweets'} found
+          </div>
 
-              {sweet.description && (
-                <p className="sweet-description">{sweet.description}</p>
-              )}
+          {sweets.length === 0 ? (
+            <div className="no-sweets">
+              <p>No sweets found. Try adjusting your search filters.</p>
+            </div>
+          ) : (
+            <div className="sweets-grid">
+              {sweets.map(sweet => (
+                <div key={sweet._id} className="sweet-card">
+                  <div className="sweet-header">
+                    <h3 className="sweet-name">{sweet.name}</h3>
+                    <span className="sweet-category">{sweet.category}</span>
+                  </div>
 
-              <div className="sweet-details">
-                <div className="price">₹{sweet.price.toFixed(2)}</div>
-                <div className={`stock ${sweet.quantity === 0 ? 'out-of-stock' : ''}`}>
-                  {sweet.quantity === 0 ? (
-                    <span className="stock-badge out">Out of Stock</span>
-                  ) : sweet.quantity < 10 ? (
-                    <span className="stock-badge low">
-                      Low Stock ({sweet.quantity})
-                    </span>
-                  ) : (
-                    <span className="stock-badge in">
-                      In Stock ({sweet.quantity})
-                    </span>
+                  {sweet.description && (
+                    <p className="sweet-description">{sweet.description}</p>
                   )}
-                </div>
-              </div>
 
-              {isAuthenticated() && (
-                <div className="purchase-section">
-                  <input
-                    type="number"
-                    min="1"
-                    max={sweet.quantity}
-                    value={purchaseQuantities[sweet._id] || ''}
-                    onChange={e =>
-                      handleQuantityChange(sweet._id, e.target.value)
-                    }
-                    placeholder="Qty"
-                    className="quantity-input"
-                    disabled={sweet.quantity === 0}
-                  />
+                  <div className="sweet-details">
+                    <div className="sweet-price">${sweet.price.toFixed(2)}</div>
+                    <div
+                      className={`sweet-quantity ${
+                        sweet.quantity === 0 ? 'out-of-stock' : ''
+                      }`}
+                    >
+                      {sweet.quantity === 0
+                        ? 'Out of Stock'
+                        : `${sweet.quantity} in stock`}
+                    </div>
+                  </div>
+
                   <button
                     onClick={() => handlePurchase(sweet._id)}
-                    disabled={
-                      sweet.quantity === 0 || purchaseLoading[sweet._id]
-                    }
-                    className="purchase-button"
+                    disabled={sweet.quantity === 0 || purchasing[sweet._id]}
+                    className={`purchase-button ${
+                      sweet.quantity === 0 ? 'disabled' : ''
+                    }`}
                   >
-                    {purchaseLoading[sweet._id] ? 'Processing...' : 'Purchase'}
+                    {purchasing[sweet._id]
+                      ? 'Purchasing...'
+                      : sweet.quantity === 0
+                      ? 'Out of Stock'
+                      : 'Purchase'}
                   </button>
                 </div>
-              )}
-
-              {purchaseErrors[sweet._id] && (
-                <div className="purchase-error">
-                  {purchaseErrors[sweet._id]}
-                </div>
-              )}
-
-              {!isAuthenticated() && (
-                <div className="login-prompt">Login to purchase</div>
-              )}
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
 export default Dashboard;
+

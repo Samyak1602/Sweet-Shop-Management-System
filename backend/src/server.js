@@ -28,14 +28,12 @@ app.get('/health', (req, res) => {
 
 // API Routes
 import authRoutes from './routes/authRoutes.js';
-import testRoutes from './routes/testRoutes.js';
 import sweetRoutes from './routes/sweetRoutes.js';
+import testRoutes from './routes/testRoutes.js';
 
 app.use('/api/auth', authRoutes);
-app.use('/api/test', testRoutes);
 app.use('/api/sweets', sweetRoutes);
-// TODO: Import and use other routes here
-// app.use('/api/orders', orderRoutes);
+app.use('/api/test', testRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

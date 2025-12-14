@@ -1,4 +1,5 @@
 import * as authService from '../services/authService.js';
+import { generateToken } from '../utils/jwt.js';
 
 /**
  * Register a new user
@@ -13,7 +14,14 @@ export const register = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: result.message,
-      user: result.user,
+      data: {
+        user: result.user,
+        token: generateToken({
+          id: result.user.id,
+          email: result.user.email,
+          role: result.user.role,
+        }),
+      },
     });
   } catch (error) {
     // Pass error to error handler middleware
@@ -37,8 +45,10 @@ export const login = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: result.message,
-      token: result.token,
-      user: result.user,
+      data: {
+        user: result.user,
+        token: result.token,
+      },
     });
   } catch (error) {
     // Pass error to error handler middleware

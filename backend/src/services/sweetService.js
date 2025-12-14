@@ -1,18 +1,67 @@
 import Sweet from '../models/Sweet.js';
 
 /**
+ * Get all sweets with optional filters
+ * @param {Object} filters - Filter options (name, category, minPrice, maxPrice)
+ * @returns {Array} List of sweets
+ */
+export const getAllSweets = async (filters = {}) => {
+  const query = {};
+
+  // Filter by name (case-insensitive search)
+  if (filters.name) {
+    query.name = { $regex: filters.name, $options: 'i' };
+  }
+
+  // Filter by category
+  if (filters.category) {
+    query.category = filters.category;
+  }
+
+  // Filter by price range
+  if (filters.minPrice || filters.maxPrice) {
+    query.price = {};
+    if (filters.minPrice) {
+      query.price.$gte = parseFloat(filters.minPrice);
+    }
+    if (filters.maxPrice) {
+      query.price.$lte = parseFloat(filters.maxPrice);
+    }
+  }
+
+  const sweets = await Sweet.find(query).sort({ createdAt: -1 });
+  return sweets;
+};
+
+/**
+ * Get a single sweet by ID
+ * @param {String} id - Sweet ID
+ * @returns {Object} Sweet object
+ */
+export const getSweetById = async id => {
+  const sweet = await Sweet.findById(id);
+  if (!sweet) {
+    throw {
+      statusCode: 404,
+      message: 'Sweet not found',
+    };
+  }
+  return sweet;
+};
+
+/**
  * Create a new sweet
  * @param {Object} sweetData - Sweet data
  * @returns {Object} Created sweet
  */
 export const createSweet = async sweetData => {
-  // Validate required fields
-  const { name, category, price, quantity } = sweetData;
+  const { name, category, price, quantity, description, image } = sweetData;
 
-  if (!name || !category || price === undefined || quantity === undefined) {
+  // Validate required fields
+  if (!name || !category || !price) {
     throw {
       statusCode: 400,
-      message: 'Name, category, price, and quantity are required',
+      message: 'Name, category, and price are required',
     };
   }
 
@@ -25,97 +74,34 @@ export const createSweet = async sweetData => {
   }
 
   // Validate quantity
-  if (quantity < 0) {
+  const qty = quantity || 0;
+  if (qty < 0) {
     throw {
       statusCode: 400,
       message: 'Quantity cannot be negative',
     };
   }
 
-  // Create sweet
-  const sweet = await Sweet.create(sweetData);
+  const sweet = await Sweet.create({
+    name,
+    category,
+    price,
+    quantity: qty,
+    description,
+    image,
+  });
+
   return sweet;
 };
 
 /**
- * Get all sweets
- * @param {Object} filters - Optional filters
- * @returns {Array} List of sweets
+ * Update a sweet
+ * @param {String} id - Sweet ID
+ * @param {Object} updateData - Data to update
+ * @returns {Object} Updated sweet
  */
-export const getAllSweets = async (filters = {}) => {
-  const query = {};
-
-  // Apply filters if provided
-  if (filters.category) {
-    query.category = filters.category;
-  }
-
-  if (filters.inStock !== undefined) {
-    query.inStock = filters.inStock;
-  }
-
-  const sweets = await Sweet.find(query).sort({ createdAt: -1 });
-  return sweets;
-};
-
-/**
- * Search sweets with multiple filters
- * @param {Object} searchParams - Search parameters
- * @returns {Array} List of matching sweets
- */
-export const searchSweets = async (searchParams = {}) => {
-  const query = {};
-
-  // Name search - case-insensitive partial match
-  if (searchParams.name && searchParams.name.trim() !== '') {
-    query.name = {
-      $regex: searchParams.name.trim(),
-      $options: 'i', // Case-insensitive
-    };
-  }
-
-  // Category filter - exact match
-  if (searchParams.category) {
-    query.category = searchParams.category;
-  }
-
-  // Price range filters
-  if (searchParams.minPrice !== undefined || searchParams.maxPrice !== undefined) {
-    query.price = {};
-
-    if (searchParams.minPrice !== undefined) {
-      const minPrice = parseFloat(searchParams.minPrice);
-      if (!isNaN(minPrice)) {
-        query.price.$gte = minPrice;
-      }
-    }
-
-    if (searchParams.maxPrice !== undefined) {
-      const maxPrice = parseFloat(searchParams.maxPrice);
-      if (!isNaN(maxPrice)) {
-        query.price.$lte = maxPrice;
-      }
-    }
-
-    // Remove empty price query if no valid filters were added
-    if (Object.keys(query.price).length === 0) {
-      delete query.price;
-    }
-  }
-
-  // Execute query with sorting (newest first)
-  const sweets = await Sweet.find(query).sort({ createdAt: -1 });
-  return sweets;
-};
-
-/**
- * Get sweet by ID
- * @param {String} sweetId - Sweet ID
- * @returns {Object} Sweet data
- */
-export const getSweetById = async sweetId => {
-  const sweet = await Sweet.findById(sweetId);
-
+export const updateSweet = async (id, updateData) => {
+  const sweet = await Sweet.findById(id);
   if (!sweet) {
     throw {
       statusCode: 404,
@@ -123,16 +109,6 @@ export const getSweetById = async sweetId => {
     };
   }
 
-  return sweet;
-};
-
-/**
- * Update sweet
- * @param {String} sweetId - Sweet ID
- * @param {Object} updateData - Data to update
- * @returns {Object} Updated sweet
- */
-export const updateSweet = async (sweetId, updateData) => {
   // Validate price if provided
   if (updateData.price !== undefined && updateData.price <= 0) {
     throw {
@@ -149,33 +125,24 @@ export const updateSweet = async (sweetId, updateData) => {
     };
   }
 
-  const sweet = await Sweet.findByIdAndUpdate(
-    sweetId,
-    updateData,
-    {
-      new: true, // Return updated document
-      runValidators: true, // Run model validators
+  // Update fields
+  Object.keys(updateData).forEach(key => {
+    if (updateData[key] !== undefined) {
+      sweet[key] = updateData[key];
     }
-  );
+  });
 
-  if (!sweet) {
-    throw {
-      statusCode: 404,
-      message: 'Sweet not found',
-    };
-  }
-
+  await sweet.save();
   return sweet;
 };
 
 /**
- * Delete sweet
- * @param {String} sweetId - Sweet ID
- * @returns {Object} Success message
+ * Delete a sweet
+ * @param {String} id - Sweet ID
+ * @returns {Object} Deletion confirmation
  */
-export const deleteSweet = async sweetId => {
-  const sweet = await Sweet.findByIdAndDelete(sweetId);
-
+export const deleteSweet = async id => {
+  const sweet = await Sweet.findById(id);
   if (!sweet) {
     throw {
       statusCode: 404,
@@ -183,49 +150,18 @@ export const deleteSweet = async sweetId => {
     };
   }
 
-  return {
-    message: 'Sweet deleted successfully',
-    deletedSweet: sweet,
-  };
+  await Sweet.findByIdAndDelete(id);
+  return { message: 'Sweet deleted successfully' };
 };
 
 /**
- * Get sweets by category
- * @param {String} category - Category name
- * @returns {Array} List of sweets in category
- */
-export const getSweetsByCategory = async category => {
-  const sweets = await Sweet.findByCategory(category);
-  return sweets;
-};
-
-/**
- * Get available sweets
- * @returns {Array} List of available sweets
- */
-export const getAvailableSweets = async () => {
-  const sweets = await Sweet.findAvailable();
-  return sweets;
-};
-
-/**
- * Purchase sweet - decrease quantity
- * @param {String} sweetId - Sweet ID
- * @param {Number} quantity - Quantity to purchase
+ * Purchase a sweet (decrease quantity)
+ * @param {String} id - Sweet ID
+ * @param {Number} quantity - Quantity to purchase (default: 1)
  * @returns {Object} Updated sweet
  */
-export const purchaseSweet = async (sweetId, quantity) => {
-  // Validate quantity
-  if (!quantity || quantity <= 0) {
-    throw {
-      statusCode: 400,
-      message: 'Quantity must be greater than 0',
-    };
-  }
-
-  // Get current sweet
-  const sweet = await Sweet.findById(sweetId);
-
+export const purchaseSweet = async (id, quantity = 1) => {
+  const sweet = await Sweet.findById(id);
   if (!sweet) {
     throw {
       statusCode: 404,
@@ -233,65 +169,32 @@ export const purchaseSweet = async (sweetId, quantity) => {
     };
   }
 
-  // Check if sweet is available
-  if (sweet.quantity === 0) {
+  if (quantity <= 0) {
     throw {
       statusCode: 400,
-      message: 'Sweet is out of stock',
+      message: 'Purchase quantity must be greater than 0',
     };
   }
 
-  // Check if sufficient quantity available
   if (sweet.quantity < quantity) {
     throw {
       statusCode: 400,
-      message: `Insufficient quantity. Only ${sweet.quantity} available`,
+      message: 'Insufficient stock available',
     };
   }
 
-  // Use atomic update to prevent race conditions
-  const updatedSweet = await Sweet.findOneAndUpdate(
-    {
-      _id: sweetId,
-      quantity: { $gte: quantity }, // Ensure quantity is still sufficient
-    },
-    {
-      $inc: { quantity: -quantity }, // Atomic decrement
-    },
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
-
-  if (!updatedSweet) {
-    throw {
-      statusCode: 400,
-      message: 'Unable to complete purchase. Please try again',
-    };
-  }
-
-  return updatedSweet;
+  await sweet.updateQuantity(-quantity);
+  return sweet;
 };
 
 /**
- * Restock sweet - increase quantity
- * @param {String} sweetId - Sweet ID
+ * Restock a sweet (increase quantity)
+ * @param {String} id - Sweet ID
  * @param {Number} quantity - Quantity to add
  * @returns {Object} Updated sweet
  */
-export const restockSweet = async (sweetId, quantity) => {
-  // Validate quantity
-  if (!quantity || quantity <= 0) {
-    throw {
-      statusCode: 400,
-      message: 'Quantity must be greater than 0',
-    };
-  }
-
-  // Check if sweet exists
-  const sweet = await Sweet.findById(sweetId);
-
+export const restockSweet = async (id, quantity) => {
+  const sweet = await Sweet.findById(id);
   if (!sweet) {
     throw {
       statusCode: 404,
@@ -299,18 +202,14 @@ export const restockSweet = async (sweetId, quantity) => {
     };
   }
 
-  // Use atomic update to prevent race conditions
-  const updatedSweet = await Sweet.findByIdAndUpdate(
-    sweetId,
-    {
-      $inc: { quantity: quantity }, // Atomic increment
-      $set: { inStock: true }, // Set back in stock
-    },
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
+  if (quantity <= 0) {
+    throw {
+      statusCode: 400,
+      message: 'Restock quantity must be greater than 0',
+    };
+  }
 
-  return updatedSweet;
+  await sweet.updateQuantity(quantity);
+  return sweet;
 };
+

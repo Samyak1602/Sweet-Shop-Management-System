@@ -1,39 +1,22 @@
 import * as sweetService from '../services/sweetService.js';
 
 /**
- * Create a new sweet
- * @route POST /api/sweets
- * @access Private (authenticated users)
- */
-export const createSweet = async (req, res, next) => {
-  try {
-    const sweetData = req.body;
-    const sweet = await sweetService.createSweet(sweetData);
-
-    res.status(201).json({
-      success: true,
-      data: sweet,
-      message: 'Sweet created successfully',
-    });
-  } catch (error) {
-    if (error.statusCode) {
-      res.status(error.statusCode);
-    }
-    next(error);
-  }
-};
-
-/**
- * Get all sweets
+ * Get all sweets with optional search/filter
  * @route GET /api/sweets
- * @access Public
  */
 export const getAllSweets = async (req, res, next) => {
   try {
     const filters = {
+      name: req.query.name,
       category: req.query.category,
-      inStock: req.query.inStock,
+      minPrice: req.query.minPrice,
+      maxPrice: req.query.maxPrice,
     };
+
+    // Remove undefined filters
+    Object.keys(filters).forEach(
+      key => filters[key] === undefined && delete filters[key]
+    );
 
     const sweets = await sweetService.getAllSweets(filters);
 
@@ -43,17 +26,43 @@ export const getAllSweets = async (req, res, next) => {
       data: sweets,
     });
   } catch (error) {
-    if (error.statusCode) {
-      res.status(error.statusCode);
-    }
     next(error);
   }
 };
 
 /**
- * Get sweet by ID
+ * Search sweets
+ * @route GET /api/sweets/search
+ */
+export const searchSweets = async (req, res, next) => {
+  try {
+    const filters = {
+      name: req.query.name || req.query.q,
+      category: req.query.category,
+      minPrice: req.query.minPrice,
+      maxPrice: req.query.maxPrice,
+    };
+
+    // Remove undefined filters
+    Object.keys(filters).forEach(
+      key => filters[key] === undefined && delete filters[key]
+    );
+
+    const sweets = await sweetService.getAllSweets(filters);
+
+    res.status(200).json({
+      success: true,
+      count: sweets.length,
+      data: sweets,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get a single sweet by ID
  * @route GET /api/sweets/:id
- * @access Public
  */
 export const getSweetById = async (req, res, next) => {
   try {
@@ -72,9 +81,29 @@ export const getSweetById = async (req, res, next) => {
 };
 
 /**
- * Update sweet
+ * Create a new sweet
+ * @route POST /api/sweets
+ */
+export const createSweet = async (req, res, next) => {
+  try {
+    const sweet = await sweetService.createSweet(req.body);
+
+    res.status(201).json({
+      success: true,
+      message: 'Sweet created successfully',
+      data: sweet,
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      res.status(error.statusCode);
+    }
+    next(error);
+  }
+};
+
+/**
+ * Update a sweet
  * @route PUT /api/sweets/:id
- * @access Private (authenticated users)
  */
 export const updateSweet = async (req, res, next) => {
   try {
@@ -82,8 +111,8 @@ export const updateSweet = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: sweet,
       message: 'Sweet updated successfully',
+      data: sweet,
     });
   } catch (error) {
     if (error.statusCode) {
@@ -94,17 +123,16 @@ export const updateSweet = async (req, res, next) => {
 };
 
 /**
- * Delete sweet
+ * Delete a sweet
  * @route DELETE /api/sweets/:id
- * @access Private (admin only)
  */
 export const deleteSweet = async (req, res, next) => {
   try {
-    const result = await sweetService.deleteSweet(req.params.id);
+    await sweetService.deleteSweet(req.params.id);
 
     res.status(200).json({
       success: true,
-      message: result.message,
+      message: 'Sweet deleted successfully',
     });
   } catch (error) {
     if (error.statusCode) {
@@ -115,92 +143,18 @@ export const deleteSweet = async (req, res, next) => {
 };
 
 /**
- * Get sweets by category
- * @route GET /api/sweets/category/:category
- * @access Public
- */
-export const getSweetsByCategory = async (req, res, next) => {
-  try {
-    const sweets = await sweetService.getSweetsByCategory(req.params.category);
-
-    res.status(200).json({
-      success: true,
-      count: sweets.length,
-      data: sweets,
-    });
-  } catch (error) {
-    if (error.statusCode) {
-      res.status(error.statusCode);
-    }
-    next(error);
-  }
-};
-
-/**
- * Get available sweets
- * @route GET /api/sweets/available
- * @access Public
- */
-export const getAvailableSweets = async (req, res, next) => {
-  try {
-    const sweets = await sweetService.getAvailableSweets();
-
-    res.status(200).json({
-      success: true,
-      count: sweets.length,
-      data: sweets,
-    });
-  } catch (error) {
-    if (error.statusCode) {
-      res.status(error.statusCode);
-    }
-    next(error);
-  }
-};
-
-/**
- * Search sweets
- * @route GET /api/sweets/search
- * @access Public
- */
-export const searchSweets = async (req, res, next) => {
-  try {
-    const searchParams = {
-      name: req.query.name,
-      category: req.query.category,
-      minPrice: req.query.minPrice,
-      maxPrice: req.query.maxPrice,
-    };
-
-    const sweets = await sweetService.searchSweets(searchParams);
-
-    res.status(200).json({
-      success: true,
-      count: sweets.length,
-      data: sweets,
-    });
-  } catch (error) {
-    if (error.statusCode) {
-      res.status(error.statusCode);
-    }
-    next(error);
-  }
-};
-
-/**
- * Purchase sweet
+ * Purchase a sweet (decrease quantity)
  * @route POST /api/sweets/:id/purchase
- * @access Private (authenticated users)
  */
 export const purchaseSweet = async (req, res, next) => {
   try {
-    const { quantity } = req.body;
+    const quantity = req.body.quantity || 1;
     const sweet = await sweetService.purchaseSweet(req.params.id, quantity);
 
     res.status(200).json({
       success: true,
+      message: 'Purchase successful',
       data: sweet,
-      message: 'Purchase completed successfully',
     });
   } catch (error) {
     if (error.statusCode) {
@@ -211,19 +165,26 @@ export const purchaseSweet = async (req, res, next) => {
 };
 
 /**
- * Restock sweet
+ * Restock a sweet (increase quantity)
  * @route POST /api/sweets/:id/restock
- * @access Private (admin only)
  */
 export const restockSweet = async (req, res, next) => {
   try {
     const { quantity } = req.body;
+
+    if (!quantity || quantity <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Quantity is required and must be greater than 0',
+      });
+    }
+
     const sweet = await sweetService.restockSweet(req.params.id, quantity);
 
     res.status(200).json({
       success: true,
+      message: 'Restock successful',
       data: sweet,
-      message: 'Sweet restocked successfully',
     });
   } catch (error) {
     if (error.statusCode) {
@@ -232,3 +193,4 @@ export const restockSweet = async (req, res, next) => {
     next(error);
   }
 };
+

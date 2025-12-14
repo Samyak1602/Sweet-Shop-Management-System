@@ -1,15 +1,13 @@
 import express from 'express';
 import {
-  createSweet,
   getAllSweets,
   getSweetById,
+  createSweet,
   updateSweet,
   deleteSweet,
-  getSweetsByCategory,
-  getAvailableSweets,
-  searchSweets,
   purchaseSweet,
   restockSweet,
+  searchSweets,
 } from '../controllers/sweetController.js';
 import { protect, authorize } from '../middleware/auth.js';
 
@@ -17,72 +15,59 @@ const router = express.Router();
 
 /**
  * @route   GET /api/sweets/search
- * @desc    Search sweets with filters
- * @access  Public
+ * @desc    Search sweets by name, category, or price range
+ * @access  Protected
  */
-router.get('/search', searchSweets);
+router.get('/search', protect, searchSweets);
 
 /**
- * @route   GET /api/sweets/available
- * @desc    Get all available sweets (in stock)
- * @access  Public
+ * @route   GET /api/sweets
+ * @desc    Get all sweets with optional filters
+ * @access  Protected
  */
-router.get('/available', getAvailableSweets);
+router.get('/', protect, getAllSweets);
 
 /**
- * @route   GET /api/sweets/category/:category
- * @desc    Get sweets by category
- * @access  Public
+ * @route   GET /api/sweets/:id
+ * @desc    Get a single sweet by ID
+ * @access  Protected
  */
-router.get('/category/:category', getSweetsByCategory);
+router.get('/:id', protect, getSweetById);
 
 /**
  * @route   POST /api/sweets
  * @desc    Create a new sweet
- * @access  Private (authenticated users)
+ * @access  Protected (Admin only)
  */
-router.post('/', protect, createSweet);
-
-/**
- * @route   GET /api/sweets
- * @desc    Get all sweets
- * @access  Public
- */
-router.get('/', getAllSweets);
-
-/**
- * @route   GET /api/sweets/:id
- * @desc    Get sweet by ID
- * @access  Public
- */
-router.get('/:id', getSweetById);
+router.post('/', protect, authorize('admin'), createSweet);
 
 /**
  * @route   PUT /api/sweets/:id
- * @desc    Update sweet
- * @access  Private (authenticated users)
+ * @desc    Update a sweet
+ * @access  Protected (Admin only)
  */
-router.put('/:id', protect, updateSweet);
+router.put('/:id', protect, authorize('admin'), updateSweet);
 
 /**
  * @route   DELETE /api/sweets/:id
- * @desc    Delete sweet
- * @access  Private (admin only)
+ * @desc    Delete a sweet
+ * @access  Protected (Admin only)
  */
 router.delete('/:id', protect, authorize('admin'), deleteSweet);
 
 /**
  * @route   POST /api/sweets/:id/purchase
- * @desc    Purchase sweet (decrease quantity)
- * @access  Private (authenticated users)
+ * @desc    Purchase a sweet (decrease quantity)
+ * @access  Protected
  */
 router.post('/:id/purchase', protect, purchaseSweet);
 
 /**
  * @route   POST /api/sweets/:id/restock
- * @desc    Restock sweet (increase quantity)
- * @access  Private (admin only)
+ * @desc    Restock a sweet (increase quantity)
+ * @access  Protected (Admin only)
  */
 router.post('/:id/restock', protect, authorize('admin'), restockSweet);
 
 export default router;
+

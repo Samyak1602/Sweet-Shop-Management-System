@@ -8,8 +8,13 @@ import './App.css';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <Router
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
+      <AuthProvider>
         <div className="App">
           <Header />
           <main>
@@ -22,13 +27,14 @@ function App() {
             </Routes>
           </main>
         </div>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 
 function Header() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, logout, isAuthenticated, isAdmin } = useAuth();
+
   return (
     <header className="App-header">
       <h1>
@@ -63,6 +69,12 @@ function Header() {
               Register
             </Link>
           </>
+        )}
+      </nav>
+    </header>
+  );
+}
+
 function Home() {
   const { isAuthenticated, user } = useAuth();
 
@@ -93,13 +105,6 @@ function Home() {
             </Link>
             <Link to="/register" className="home-link">
               Register
-            </Link>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}             Register
             </Link>
           </div>
         </div>

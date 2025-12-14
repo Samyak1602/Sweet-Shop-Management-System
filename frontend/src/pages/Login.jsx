@@ -15,38 +15,25 @@ function Login() {
 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [apiError, setApiError] = useState('');
 
   const handleChange = e => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-    // Clear error for this field
+    setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: '',
-      }));
-    }
-    // Clear API error
-    if (apiError) {
-      setApiError('');
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+    } else if (!emailRegex.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email';
     }
 
-    // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
     }
@@ -57,28 +44,45 @@ function Login() {
 
   const handleSubmit = async e => {
     e.preventDefault();
-    setApiError('');
 
     if (!validateForm()) {
       return;
     }
 
-    setLoading(true);
-
     try {
+      setLoading(true);
+      setErrors({});
+
       const response = await apiClient.post('/auth/login', {
         email: formData.email,
         password: formData.password,
       });
 
-      if (response.data.success) {
-        login(response.data.user, response.data.token);
-        navigate('/');
+      console.log('Login response:', response.data);
+
+      if (response.data.success && response.data.data) {
+        const { user, token } = response.data.data;
+        if (user && token) {
+          login(user, token);
+          navigate('/dashboard');
+        } else {
+          setErrors({
+            submit: 'Invalid response from server. Please try again.',
+          });
+        }
+      } else {
+        setErrors({
+          submit: response.data?.message || 'Login failed. Please try again.',
+        });
       }
     } catch (error) {
+      console.error('Login error:', error);
       const message =
-        error.response?.data?.message || 'Login failed. Please try again.';
-      setApiError(message);
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        'Login failed. Please try again.';
+      setErrors({ submit: message });
     } finally {
       setLoading(false);
     }
@@ -87,12 +91,8 @@ function Login() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h2>Welcome Back</h2>
-        <p className="auth-subtitle">Login to your account</p>
-
-        {apiError && <div className="error-message">{apiError}</div>}
-
-        <form onSubmit={handleSubmit} className="auth-form">
+        <h2>Login</h2>
+        <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <input
@@ -104,7 +104,7 @@ function Login() {
               className={errors.email ? 'error' : ''}
               placeholder="Enter your email"
             />
-            {errors.email && <span className="field-error">{errors.email}</span>}
+            {errors.email && <span className="error-text">{errors.email}</span>}
           </div>
 
           <div className="form-group">
@@ -116,18 +116,18 @@ function Login() {
               value={formData.password}
               onChange={handleChange}
               className={errors.password ? 'error' : ''}
-              placeholder="Enter your password"
+              placeholder="Enter password"
             />
             {errors.password && (
-              <span className="field-error">{errors.password}</span>
+              <span className="error-text">{errors.password}</span>
             )}
           </div>
 
-          <button
-            type="submit"
-            className="auth-button"
-            disabled={loading}
-          >
+          {errors.submit && (
+            <div className="error-banner">{errors.submit}</div>
+          )}
+
+          <button type="submit" disabled={loading} className="submit-button">
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
