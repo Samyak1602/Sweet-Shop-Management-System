@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import AdminPanel from './pages/AdminPanel';
 import './App.css';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/admin" element={<AdminPanel />} />
             </Routes>
           </main>
         </div>
@@ -38,6 +40,11 @@ function Header() {
         <Link to="/dashboard" className="nav-link">
           Dashboard
         </Link>
+        {isAdmin() && (
+          <Link to="/admin" className="nav-link admin-link">
+            Admin Panel
+          </Link>
+        )}
         {isAuthenticated() ? (
           <>
             <span className="user-info">

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/apiClient';
 import './Dashboard.css';
@@ -188,9 +189,16 @@ function Dashboard() {
     <div className="dashboard-container">
       <div className="dashboard-header">
         <h2>Sweet Shop Inventory</h2>
-        <button onClick={fetchSweets} className="refresh-button">
-          🔄 Refresh
-        </button>
+        <div className="header-actions">
+          {isAdmin() && (
+            <Link to="/admin" className="admin-link-button">
+              Admin Panel
+            </Link>
+          )}
+          <button onClick={fetchSweets} className="refresh-button">
+            🔄 Refresh
+          </button>
+        </div>
       </div>
 
       {successMessage && (
