@@ -163,6 +163,32 @@ npm run format
 - Restock sweets (increase inventory)
 - Access to admin panel
 
+## Screenshots
+
+### Homepage
+![Homepage](./screenshots/homepage.png)
+*Welcome page with navigation to login, register, or browse sweets*
+
+### User Registration
+![Registration](./screenshots/registration.png)
+*User registration form with validation*
+
+### User Login
+![Login](./screenshots/login.png)
+*Login page for authenticated users*
+
+### Dashboard - Sweets Listing
+![Dashboard](./screenshots/dashboard.png)
+*Main dashboard showing all available sweets with search and filter options*
+
+### Admin Panel
+![Admin Panel](./screenshots/admin-panel.png)
+*Admin panel for managing sweets inventory*
+
+### Add/Edit Sweet Form
+![Add Sweet](./screenshots/add-sweet.png)
+*Form for adding or editing sweets with all required fields*
+
 ## Testing
 
 Backend includes Jest for testing:
