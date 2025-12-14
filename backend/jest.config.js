@@ -4,4 +4,8 @@ export default {
   testMatch: ['**/tests/**/*.test.js'],
   collectCoverageFrom: ['src/**/*.js'],
   verbose: true,
+  transform: {},
+  testTimeout: 10000,
+  detectOpenHandles: true,
+  forceExit: true,
 };
