@@ -207,3 +207,110 @@ export const getAvailableSweets = async () => {
   const sweets = await Sweet.findAvailable();
   return sweets;
 };
+
+/**
+ * Purchase sweet - decrease quantity
+ * @param {String} sweetId - Sweet ID
+ * @param {Number} quantity - Quantity to purchase
+ * @returns {Object} Updated sweet
+ */
+export const purchaseSweet = async (sweetId, quantity) => {
+  // Validate quantity
+  if (!quantity || quantity <= 0) {
+    throw {
+      statusCode: 400,
+      message: 'Quantity must be greater than 0',
+    };
+  }
+
+  // Get current sweet
+  const sweet = await Sweet.findById(sweetId);
+
+  if (!sweet) {
+    throw {
+      statusCode: 404,
+      message: 'Sweet not found',
+    };
+  }
+
+  // Check if sweet is available
+  if (sweet.quantity === 0) {
+    throw {
+      statusCode: 400,
+      message: 'Sweet is out of stock',
+    };
+  }
+
+  // Check if sufficient quantity available
+  if (sweet.quantity < quantity) {
+    throw {
+      statusCode: 400,
+      message: `Insufficient quantity. Only ${sweet.quantity} available`,
+    };
+  }
+
+  // Use atomic update to prevent race conditions
+  const updatedSweet = await Sweet.findOneAndUpdate(
+    {
+      _id: sweetId,
+      quantity: { $gte: quantity }, // Ensure quantity is still sufficient
+    },
+    {
+      $inc: { quantity: -quantity }, // Atomic decrement
+    },
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
+
+  if (!updatedSweet) {
+    throw {
+      statusCode: 400,
+      message: 'Unable to complete purchase. Please try again',
+    };
+  }
+
+  return updatedSweet;
+};
+
+/**
+ * Restock sweet - increase quantity
+ * @param {String} sweetId - Sweet ID
+ * @param {Number} quantity - Quantity to add
+ * @returns {Object} Updated sweet
+ */
+export const restockSweet = async (sweetId, quantity) => {
+  // Validate quantity
+  if (!quantity || quantity <= 0) {
+    throw {
+      statusCode: 400,
+      message: 'Quantity must be greater than 0',
+    };
+  }
+
+  // Check if sweet exists
+  const sweet = await Sweet.findById(sweetId);
+
+  if (!sweet) {
+    throw {
+      statusCode: 404,
+      message: 'Sweet not found',
+    };
+  }
+
+  // Use atomic update to prevent race conditions
+  const updatedSweet = await Sweet.findByIdAndUpdate(
+    sweetId,
+    {
+      $inc: { quantity: quantity }, // Atomic increment
+      $set: { inStock: true }, // Set back in stock
+    },
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
+
+  return updatedSweet;
+};

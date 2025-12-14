@@ -186,3 +186,49 @@ export const searchSweets = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Purchase sweet
+ * @route POST /api/sweets/:id/purchase
+ * @access Private (authenticated users)
+ */
+export const purchaseSweet = async (req, res, next) => {
+  try {
+    const { quantity } = req.body;
+    const sweet = await sweetService.purchaseSweet(req.params.id, quantity);
+
+    res.status(200).json({
+      success: true,
+      data: sweet,
+      message: 'Purchase completed successfully',
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      res.status(error.statusCode);
+    }
+    next(error);
+  }
+};
+
+/**
+ * Restock sweet
+ * @route POST /api/sweets/:id/restock
+ * @access Private (admin only)
+ */
+export const restockSweet = async (req, res, next) => {
+  try {
+    const { quantity } = req.body;
+    const sweet = await sweetService.restockSweet(req.params.id, quantity);
+
+    res.status(200).json({
+      success: true,
+      data: sweet,
+      message: 'Sweet restocked successfully',
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      res.status(error.statusCode);
+    }
+    next(error);
+  }
+};

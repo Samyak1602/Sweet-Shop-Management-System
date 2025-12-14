@@ -8,6 +8,8 @@ import {
   getSweetsByCategory,
   getAvailableSweets,
   searchSweets,
+  purchaseSweet,
+  restockSweet,
 } from '../controllers/sweetController.js';
 import { protect, authorize } from '../middleware/auth.js';
 
@@ -68,5 +70,19 @@ router.put('/:id', protect, updateSweet);
  * @access  Private (admin only)
  */
 router.delete('/:id', protect, authorize('admin'), deleteSweet);
+
+/**
+ * @route   POST /api/sweets/:id/purchase
+ * @desc    Purchase sweet (decrease quantity)
+ * @access  Private (authenticated users)
+ */
+router.post('/:id/purchase', protect, purchaseSweet);
+
+/**
+ * @route   POST /api/sweets/:id/restock
+ * @desc    Restock sweet (increase quantity)
+ * @access  Private (admin only)
+ */
+router.post('/:id/restock', protect, authorize('admin'), restockSweet);
 
 export default router;
