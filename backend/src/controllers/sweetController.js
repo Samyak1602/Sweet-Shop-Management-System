@@ -157,3 +157,32 @@ export const getAvailableSweets = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Search sweets
+ * @route GET /api/sweets/search
+ * @access Public
+ */
+export const searchSweets = async (req, res, next) => {
+  try {
+    const searchParams = {
+      name: req.query.name,
+      category: req.query.category,
+      minPrice: req.query.minPrice,
+      maxPrice: req.query.maxPrice,
+    };
+
+    const sweets = await sweetService.searchSweets(searchParams);
+
+    res.status(200).json({
+      success: true,
+      count: sweets.length,
+      data: sweets,
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      res.status(error.statusCode);
+    }
+    next(error);
+  }
+};

@@ -7,10 +7,18 @@ import {
   deleteSweet,
   getSweetsByCategory,
   getAvailableSweets,
+  searchSweets,
 } from '../controllers/sweetController.js';
 import { protect, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
+
+/**
+ * @route   GET /api/sweets/search
+ * @desc    Search sweets with filters
+ * @access  Public
+ */
+router.get('/search', searchSweets);
 
 /**
  * @route   GET /api/sweets/available

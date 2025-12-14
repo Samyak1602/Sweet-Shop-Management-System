@@ -59,6 +59,56 @@ export const getAllSweets = async (filters = {}) => {
 };
 
 /**
+ * Search sweets with multiple filters
+ * @param {Object} searchParams - Search parameters
+ * @returns {Array} List of matching sweets
+ */
+export const searchSweets = async (searchParams = {}) => {
+  const query = {};
+
+  // Name search - case-insensitive partial match
+  if (searchParams.name && searchParams.name.trim() !== '') {
+    query.name = {
+      $regex: searchParams.name.trim(),
+      $options: 'i', // Case-insensitive
+    };
+  }
+
+  // Category filter - exact match
+  if (searchParams.category) {
+    query.category = searchParams.category;
+  }
+
+  // Price range filters
+  if (searchParams.minPrice !== undefined || searchParams.maxPrice !== undefined) {
+    query.price = {};
+
+    if (searchParams.minPrice !== undefined) {
+      const minPrice = parseFloat(searchParams.minPrice);
+      if (!isNaN(minPrice)) {
+        query.price.$gte = minPrice;
+      }
+    }
+
+    if (searchParams.maxPrice !== undefined) {
+      const maxPrice = parseFloat(searchParams.maxPrice);
+      if (!isNaN(maxPrice)) {
+        query.price.$lte = maxPrice;
+      }
+    }
+
+    // Remove empty price query if no valid filters were added
+    if (Object.keys(query.price).length === 0) {
+      delete query.price;
+    }
+  }
+
+  // Execute query with sorting (newest first)
+  const sweets = await Sweet.find(query).sort({ createdAt: -1 });
+  return sweets;
+};
+
+/**
  * Get sweet by ID
  * @param {String} sweetId - Sweet ID
  * @returns {Object} Sweet data
